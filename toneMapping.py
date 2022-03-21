@@ -8,3 +8,8 @@ def photographic_global_operator(hdr, a, delta):
     ldr = np.array(Ld * 255)
     
     return ldr
+
+
+def photographic_local_operator(hdr, a, delta):
+    Lw = np.exp(np.mean(np.log(delta + hdr)))
+    Lm = (a / Lw) * hdr

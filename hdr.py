@@ -38,8 +38,8 @@ def plot_response_curve(response_curve, out_dir):
 
 def save(hdr, ldr, response_curve, out_dir):
     np.save(os.path.join(out_dir, 'response_curve.npy'), response_curve)
-    cv2.imwrite(os.path.join(out_dir, 'radiance.hdr'), radiance_map)
-    np.save(os.path.join(out_dir, 'radiance.npy'), radiance_map)
+    cv2.imwrite(os.path.join(out_dir, 'radiance.hdr'), hdr)
+    np.save(os.path.join(out_dir, 'radiance.npy'), hdr)
     cv2.imwrite(os.path.join(out_dir, 'pho_global.png'), ldr)
 
 
