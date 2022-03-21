@@ -1,5 +1,4 @@
 import argparse
-from urllib import response
 import cv2
 import numpy as np
 import os
