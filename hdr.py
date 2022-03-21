@@ -1,9 +1,11 @@
 import argparse
+from urllib import response
 import cv2
 import numpy as np
 import os
 import random
 import matplotlib.pyplot as plt
+
 
 def load_data(dir):
     imgs = []
@@ -95,13 +97,13 @@ def recoverRadianceMap(imgs, log_shutter, W, response_curve):
                     sum_ += W[imgs[n][i, j, c]] * (response_curve[c][imgs[n][i, j, c]] - log_shutter[n])
                     sum_w += W[imgs[n][i, j, c]]
                 radiance_map[i, j, c] = sum_ / sum_w
+                # radiance_map[i, j, c] = (response_curve[c][imgs[len(imgs)//2][i, j, c]] - log_shutter[len(imgs)//2])
     return np.exp(radiance_map)
 
 def plot_response_curve(response_curve, out_dir):
     colors = ['blue', 'green', 'red']
     for c in range(3):
         plt.plot(response_curve[c], np.arange(256), c=colors[c])
-
     plt.xlabel('Log Exposure')
     plt.ylabel('Pixel Value')
     plt.savefig(os.path.join(out_dir, 'response_curve.png'))
@@ -115,12 +117,17 @@ def debevec(imgs, shutter, num_samples, out_dir):
 
     response_curve = recoverResponseCurve(imgs, log_shutter, W, l, num_samples)
     print(np.array(response_curve).shape)
+    np.save(os.path.join(out_dir, 'response_curve.npy'), response_curve)
+    # response_curve = np.load(os.path.join('res_jiufen_2_debevec/response_curve.npy'))
+
     plot_response_curve(response_curve, out_dir)
     radiance_map = recoverRadianceMap(imgs, log_shutter, W, response_curve)
     
     cv2.imwrite(os.path.join(out_dir, 'radiance.hdr'), radiance_map)
     np.save(os.path.join(out_dir, 'radiance.npy'), radiance_map)
     # radiance_map = np.load(os.path.join(out_dir, 'radiance.npy'))
+
+    return radiance_map
 
 def photographic_global_operator(hdr, a):
     Lw = np.exp(np.mean(np.log(1e-8 + hdr)))
@@ -148,18 +155,15 @@ if __name__ == '__main__':
     imgs = np.array([cv2.resize(img, (int(img.shape[1]*0.2), int(img.shape[0]*0.2))) for img in imgs])
     print(imgs.shape ,raws.shape)
     print(shutter)
-
     
     if args.hdr_method == 'debevec':
-        debevec(imgs, shutter, 50, out_dir)
+        hdr = debevec(imgs, shutter, 50, out_dir)
     elif args.hdr_method == 'fromraw':
         pass
     elif args.hdr_method == 'robertson':
         pass
 
-
     ldr = photographic_global_operator(hdr, 0.5)
     cv2.imwrite(os.path.join(out_dir, 'pho_global.png'), ldr)
-
 
 
