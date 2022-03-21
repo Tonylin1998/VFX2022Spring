@@ -1,59 +1,61 @@
 import numpy as np
 import cv2
 import os
+# from hdr import photographic_global_operator
 
 class Robertson():
-    def __init__(self, imgs, shutter, out_dir):
-        self.imgs = imgs
-        self.shutter = shutter
-        self.p = len(imgs)
-        self.height = imgs[0].shape[0]
-        self.width = imgs[0].shape[1]
+    def __init__(self):
         self.maxIter = 10
-        self.out_dir = out_dir
-
         self.weight = np.array([128.5 -  abs(i - 127.5) for i in range(256)])
-        self.G = [[(i - 128) * 0.9 / 128 + 1 for i in range(256)] for j in range(3)]
-        self.cal_E()
-        # for i in range(3):
-        #     for j in range(100):
-        #         self.G[i][j] /= 1.5
     
 
-    def cal_E(self):
-        newE = np.zeros((self.height, self.width, 3))
-        for i in range(self.height):
-            for j in range(self.width):
+    def cal_E(self, imgs, shutter):
+        p = len(imgs)
+        height, width, _ = imgs[0].shape
+        newE = np.zeros((height, width, 3))
+        for i in range(height):
+            for j in range(width):
                 for c in range(3):
                     nu, de = 0, 0
-                    for k in range(self.p):
-                        nu += self.weight[self.imgs[k][i, j, c]] * self.G[c][self.imgs[k][i, j, c]] * self.shutter[k]
-                        de += self.weight[self.imgs[k][i, j, c]] * self.shutter[k] ** 2
+                    for k in range(p):
+                        nu += self.weight[imgs[k][i, j, c]] * self.G[c][imgs[k][i, j, c]] * shutter[k]
+                        de += self.weight[imgs[k][i, j, c]] * shutter[k] ** 2
                     newE[i, j, c] = nu / de
         self.E = newE
     
-    def cal_G(self):
+    def cal_G(self, imgs, shutter):
         newG = np.zeros((3, 256))
         count = np.zeros((3, 256))
-        for k in range(self.p):
-            for i in range(self.height):
-                for j in range(self.width):
+        p = len(imgs)
+        height, width, _ = imgs[0].shape
+        for k in range(p):
+            for i in range(height):
+                for j in range(width):
                     for c in range(3):
-                        newG[c, self.imgs[k][i, j, c]] += self.shutter[k] * self.E[i, j, c]
-                        count[c, self.imgs[k][i, j, c]] += 1
+                        newG[c, imgs[k][i, j, c]] += shutter[k] * self.E[i, j, c]
+                        count[c, imgs[k][i, j, c]] += 1
         
         self.G = newG / count
         for i in range(3):
             self.G[i] /= self.G[i][128]
     
+    def cal_sum(self):
+        return np.sum(self.E.flatten())
 
-    def run(self):
+    def initEG(self, imgs, shutter):
+        self.G = [[(i - 128) * 0.9 / 128 + 1 for i in range(256)] for j in range(3)]
+        self.cal_E(imgs, shutter)
+
+
+    def run(self, imgs, shutter):
+        self.initEG(imgs, shutter)
         for i in range(self.maxIter):
-            self.cal_G()
-            self.cal_E()
-            self.save()
-            print(f"Finish iteration {i}")
-
-    def save(self):
-        cv2.imwrite(os.path.join(self.out_dir, 'radiance.hdr'), self.E)
-        np.save(os.path.join(self.out_dir, 'radiance.npy'), self.E)
+            self.cal_G(imgs, shutter)
+            lastSum = self.cal_sum()
+            self.cal_E(imgs, shutter)
+            curSum = self.cal_sum()
+            # self.save()
+            print(f"Finish iteration {i}, lastSum: {lastSum}, curSum: {curSum}")
+            if abs(lastSum - curSum) / lastSum < 0.01:
+                break
+        return self.E, self.G
