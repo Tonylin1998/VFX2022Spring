@@ -10,7 +10,7 @@ def load_data(dir):
     raws = []
     shutter = []
     for f in np.sort(os.listdir(dir)):
-        if('jpg' in f or 'JPG' in f):
+        if('jpg' in f or 'JPG' in f or 'png' in f):
             imgs.append(cv2.imread(os.path.join(dir, f)))
         elif('ARW' in f):
             pass
@@ -25,18 +25,15 @@ def load_data(dir):
     
     return np.array(imgs), np.array(raws), shutter
 
-def sample_pixels(imgs, num_samples=100):
 
-    x_idx = random.sample(range(imgs[0].shape[0]), num_samples)
-    y_idx = random.sample(range(imgs[0].shape[1]), num_samples)
-   
+def sample_pixels(imgs, num_samples=100):
+    idx = random.sample(range(imgs[0].shape[0] * imgs[0].shape[1]), num_samples)
+
     res = np.zeros((num_samples, len(imgs), 3))
-    for c in range(3):
+    for k in range(num_samples):
         for p in range(len(imgs)):
-            k = 0
-            for x in x_idx:
-                for y in y_idx:
-                    res[k][p][c] = imgs[p][x, y, c]
+            for c in range(3):
+                res[k][p][c] = imgs[p][int(idx[k] / imgs[0].shape[1]), int(idx[k] % imgs[0].shape[1]), c]
 
 
     return res
@@ -45,14 +42,16 @@ def sample_pixels(imgs, num_samples=100):
 def recoverResponseCurve(imgs, log_shutter, W, l, num_samples):
     response_curve = []
     Zs = sample_pixels(imgs, num_samples)
+    # print(Zs.shape)
     # print(a)
-    print(Zs.shape)
+    # print(Zs[0][0])
     
     n = num_samples
     p = len(imgs)
 
     for c in range(3):
         Z = np.array(Zs[:,:,c])
+        # Z = np.array(Zs[c])
         print(np.array(Z).shape)
         A = np.zeros([n*p + 255, 256 + n])
         B = np.zeros((A.shape[0], 1))
@@ -66,6 +65,8 @@ def recoverResponseCurve(imgs, log_shutter, W, l, num_samples):
                 A[k, 256+i] = -wij
                 B[k, 0] = wij * log_shutter[j]
                 k += 1
+        A[k, 127] = 1
+        k += 1
    
         for i in range(1, 255):
             wi = W[i]
@@ -74,7 +75,9 @@ def recoverResponseCurve(imgs, log_shutter, W, l, num_samples):
             A[k, i+1] = wi * l
             k += 1
 
-        A[-1, 127] = 1
+       
+        # np.save('A.npy', A)
+        # np.save('B.npy', B)
 
         A_inv = np.linalg.pinv(A)
         g = np.dot(A_inv, B)[:256].flatten()
@@ -94,21 +97,31 @@ def recoverRadianceMap(imgs, log_shutter, W, response_curve):
                 radiance_map[i, j, c] = sum_ / sum_w
     return np.exp(radiance_map)
 
+def plot_response_curve(response_curve, out_dir):
+    colors = ['blue', 'green', 'red']
+    for c in range(3):
+        plt.plot(response_curve[c], np.arange(256), c=colors[c])
+
+    plt.xlabel('Log Exposure')
+    plt.ylabel('Pixel Value')
+    plt.savefig(os.path.join(out_dir, 'response_curve.png'))
+
 
 def debevec(imgs, shutter, num_samples, out_dir):
     log_shutter = np.log(shutter)
     l = 10
-    W = np.concatenate((np.arange(1, 129), np.arange(1, 129)[::-1]), axis=0)
-    response_curve = recoverResponseCurve(imgs, log_shutter, W, l, num_samples)
-    print(np.array(response_curve).shape)
-    radiance_map = recoverRadianceMap(imgs, log_shutter, W, response_curve)
+    W = np.array(list(range(1,129))+list(range(129,1,-1)))
     
 
+    response_curve = recoverResponseCurve(imgs, log_shutter, W, l, num_samples)
+    print(np.array(response_curve).shape)
+    plot_response_curve(response_curve, out_dir)
+    radiance_map = recoverRadianceMap(imgs, log_shutter, W, response_curve)
+    
     cv2.imwrite(os.path.join(out_dir, 'radiance.hdr'), radiance_map)
     np.save(os.path.join(out_dir, 'radiance.npy'), radiance_map)
     # radiance_map = np.load(os.path.join(out_dir, 'radiance.npy'))
 
-  
 
 def ParseArgs():
     parser = argparse.ArgumentParser()
@@ -127,8 +140,9 @@ if __name__ == '__main__':
     print(imgs.shape ,raws.shape)
     print(shutter)
 
+    
     if args.hdr_method == 'debevec':
-        debevec(imgs, shutter, 100, out_dir)
+        debevec(imgs, shutter, 50, out_dir)
     elif args.hdr_method == 'fromraw':
         pass
     elif args.hdr_method == 'robertson':
