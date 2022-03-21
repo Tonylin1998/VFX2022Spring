@@ -5,6 +5,7 @@ import numpy as np
 import os
 import random
 import matplotlib.pyplot as plt
+from robertson import Robertson
 
 
 def load_data(dir):
@@ -161,7 +162,9 @@ if __name__ == '__main__':
     elif args.hdr_method == 'fromraw':
         pass
     elif args.hdr_method == 'robertson':
-        pass
+        robert = Robertson(imgs, shutter, out_dir)
+        robert.run()
+        hdr = robert.E
 
     ldr = photographic_global_operator(hdr, 0.5)
     cv2.imwrite(os.path.join(out_dir, 'pho_global.png'), ldr)
