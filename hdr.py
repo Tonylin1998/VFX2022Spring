@@ -122,6 +122,15 @@ def debevec(imgs, shutter, num_samples, out_dir):
     np.save(os.path.join(out_dir, 'radiance.npy'), radiance_map)
     # radiance_map = np.load(os.path.join(out_dir, 'radiance.npy'))
 
+def photographic_global_operator(hdr, a):
+    Lw = np.exp(np.mean(np.log(1e-8 + hdr)))
+    Lm = (a / Lw) * hdr
+    L_white = np.max(Lm) 
+    Ld = (Lm * (1 + (Lm/(L_white ** 2)))) / (1 + Lm)
+    ldr = np.array(Ld * 255)
+    
+    return ldr
+
 
 def ParseArgs():
     parser = argparse.ArgumentParser()
@@ -148,6 +157,9 @@ if __name__ == '__main__':
     elif args.hdr_method == 'robertson':
         pass
 
+
+    ldr = photographic_global_operator(hdr, 0.5)
+    cv2.imwrite(os.path.join(out_dir, 'pho_global.png'), ldr)
 
 
 
