@@ -36,12 +36,11 @@ def plot_response_curve(response_curve, out_dir):
     plt.ylabel('Pixel Value')
     plt.savefig(os.path.join(out_dir, 'response_curve.png'))
 
-def save(hdr, ldr, response_curve, out_dir):
+def save(hdr, ldr, args, response_curve, out_dir):
     np.save(os.path.join(out_dir, 'response_curve.npy'), response_curve)
     cv2.imwrite(os.path.join(out_dir, 'radiance.hdr'), hdr)
     np.save(os.path.join(out_dir, 'radiance.npy'), hdr)
-    cv2.imwrite(os.path.join(out_dir, 'pho_global.png'), ldr)
-
+    cv2.imwrite(os.path.join(out_dir, f'pho_global_{args.p_global}.png'), ldr)
 
 def ParseArgs():
     parser = argparse.ArgumentParser()
@@ -49,20 +48,38 @@ def ParseArgs():
     parser.add_argument('--hdr_method', type=str, default='debevec', choices=['debevec', 'fromraw', 'robertson'])
     return parser.parse_args()
 
+def ParseArgs():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data', type=str)
+    parser.add_argument('--hdr_method', type=str, default='debevec', choices=['debevec', 'fromraw', 'robertson'])
+    parser.add_argument('--resize_ratio', type=float)
+    parser.add_argument('--num_samples', type=int, default=50)
+    parser.add_argument('--smooth', type=int, default=20)
+    parser.add_argument('--p_global', type=float, default=0.5)
+    parser.add_argument('--p_local', type=float, default=0.5)
+    # parser.add_argument('')
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     args = ParseArgs()
-    out_dir = f"res_{args.data.split('/')[-1]}_{args.hdr_method}"
+    out_dir = f"res_{args.data.split('/')[-1]}_{args.hdr_method}_{args.num_samples}_l{args.smooth}"
+    if(args.resize_ratio):
+        out_dir += f"_{args.resize_ratio}"
+    print(out_dir)
+    # print(a)
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
     imgs, raws, shutter = load_data(args.data)
-    imgs = np.array([cv2.resize(img, (int(img.shape[1]*0.2), int(img.shape[0]*0.2))) for img in imgs])
+    if(args.resize_ratio):
+        imgs = np.array([cv2.resize(img, (int(img.shape[1]*args.resize_ratio), int(img.shape[0]*args.resize_ratio))) for img in imgs])
     print(imgs.shape ,raws.shape)
     print(shutter)
     
     if args.hdr_method == 'debevec':
         debevec = Debevec()
-        hdr, response_curve = debevec.run(imgs, shutter, 50, out_dir)
+        hdr, response_curve = debevec.run(imgs, shutter, args.num_samples, args.smooth)
     elif args.hdr_method == 'fromraw':
         pass
     elif args.hdr_method == 'robertson':
@@ -70,7 +87,9 @@ if __name__ == '__main__':
         hdr, response_curve = robert.run(imgs, shutter)
     
 
+    # tone mapping
+    ldr = photographic_global_operator(hdr, args.p_global, 1e-8)
 
-    ldr = photographic_global_operator(hdr, 0.5, 1e-8)
+
     plot_response_curve(response_curve, out_dir)
-    save(hdr, ldr, response_curve, out_dir)
+    save(hdr, ldr, args, response_curve, out_dir)

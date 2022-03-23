@@ -76,9 +76,9 @@ class Debevec():
             response_curve.append(g)
         return response_curve
 
-    def run(self, imgs, shutter, num_samples, out_dir):
+    def run(self, imgs, shutter, num_samples, smooth):
         log_shutter = np.log(shutter)
-        l = 10
+        l = smooth
         W = np.array(list(range(1,129))+list(range(129,1,-1)))
         
 
