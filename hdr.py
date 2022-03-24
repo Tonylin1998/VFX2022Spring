@@ -88,7 +88,7 @@ if __name__ == '__main__':
     
 
     # tone mapping
-    ldr = photographic_global_operator(hdr, args.p_global, 1e-8)
+    ldr = photographic_local_operator(hdr, args.p_local, 1e-8)
 
 
     plot_response_curve(response_curve, out_dir)

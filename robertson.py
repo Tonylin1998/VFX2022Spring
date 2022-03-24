@@ -6,7 +6,7 @@ import os
 class Robertson():
     def __init__(self):
         self.maxIter = 10
-        self.weight = np.array([np.log(128.5 -  abs(i - 127.5)) + 1 for i in range(256)])
+        self.weight = np.array([np.exp(128.5 -  abs(i - 127.5)) for i in range(256)])
         # self.weight = np.array([1 for i in range(256)])
         # self.weight = np.array([max(256 - i, 128) for i in range(256)])
     
