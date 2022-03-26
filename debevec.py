@@ -36,10 +36,15 @@ class Debevec():
                 img_flatten = imgs[n][:, :, c].flatten()
                 sum_ += (response_curve[c][img_flatten] - log_shutter[n]) * W[img_flatten]
                 sum_w += W[img_flatten]
+            # img_flatten = imgs[len(imgs)//2][:, :, c].flatten()
+            # sum_ += (response_curve[c][img_flatten] - log_shutter[len(imgs)//2]) * W[img_flatten]
+            # sum_w += W[img_flatten]
+
             radiance_map[:, :, c] = (sum_ / sum_w).reshape(imgs[0].shape[0], imgs[0].shape[1])
+
         return np.exp(radiance_map)
 
-    def recoverResponseCurve(self, imgs, log_shutter, W, l, num_samples):
+    def recoverResponseCurve(self, imgs, log_shutter, W, l, fix, num_samples):
         response_curve = []
         Zs = self.sample_pixels(imgs, num_samples)
         # print(Zs.shape)
@@ -65,7 +70,7 @@ class Debevec():
                     A[k, 256+i] = -wij
                     B[k, 0] = wij * log_shutter[j]
                     k += 1
-            A[k, 127] = 1
+            A[k, fix] = 1
             k += 1
     
             for i in range(1, 255):
@@ -84,13 +89,13 @@ class Debevec():
             response_curve.append(g)
         return response_curve
 
-    def run(self, imgs, shutter, num_samples, smooth):
+    def run(self, imgs, shutter, num_samples, smooth, fix):
         log_shutter = np.log(shutter)
         l = smooth
         W = np.array(list(range(1,129))+list(range(129,1,-1)))
         
 
-        response_curve = self.recoverResponseCurve(imgs, log_shutter, W, l, num_samples)
+        response_curve = self.recoverResponseCurve(imgs, log_shutter, W, l, fix, num_samples)
         radiance_map = self.recoverRadianceMap(imgs, log_shutter, W, response_curve)
         print(np.array(response_curve).shape)
         # np.save(os.path.join(out_dir, 'response_curve.npy'), response_curve)
