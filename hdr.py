@@ -60,8 +60,8 @@ def ParseArgs():
     parser.add_argument('--resize_ratio', type=float)
     parser.add_argument('--num_samples', type=int, default=50)
     parser.add_argument('--smooth', type=int, default=20)
-    parser.add_argument('--p_global', type=float, default=0.5)
-    parser.add_argument('--p_local', type=float, default=0.5)
+    parser.add_argument('--a_global', type=float, default=0.5)
+    parser.add_argument('--a_local', type=float, default=0.5)
     parser.add_argument('--load_hdr', action='store_true')
 
     return parser.parse_args()
