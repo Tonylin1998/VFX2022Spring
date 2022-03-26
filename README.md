@@ -10,5 +10,4 @@ numpy
 matplotlib  
 
 ## Run Code
-
-python hdr.py --data 
+python hdr.py --data <data path>
