@@ -7,11 +7,13 @@ class Robertson():
     def __init__(self):
         self.maxIter = 10
         # self.weight = np.array([1 / (abs(i - 127.5)) for i in range(256)])
-        # self.weight = np.array([-(i - 80) ** 2 + 175 ** 2 + 1 for i in range(256)])
+        # self.weight = np.array([(-3 * abs(i - 60) + 586) ** 1.5 for i in range(256)])
+        self.weight = np.array([-(i - 60) ** 2 + 195 ** 2 + 1 for i in range(256)])
+        # self.weight = np.array([max(-(i - 60) ** 2 + 195 ** 2 + 1, -1 * 140 ** 2 + 195 ** 2 + 1) for i in range(256)])
         # self.weight = np.array([(128.5 -  abs(i - 127.5)) ** 2 for i in range(256)])
         # self.weight /= np.sum(self.weight)
         # print(self.weight)
-        self.weight = np.array([1 for i in range(256)])
+        # self.weight = np.array([max(64, abs(i - 127.5)) for i in range(256)])
         # self.weight = np.array([1 for i in range(256)])
         # self.weight = np.array([max(256 - i, 128) for i in range(256)])
     
