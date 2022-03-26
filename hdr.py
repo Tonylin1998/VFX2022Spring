@@ -17,7 +17,7 @@ def load_data(dir):
             imgs.append(cv2.imread(os.path.join(dir, f)))
         elif('ARW' in f):
             pass
-    with open(os.path.join(dir, 'shutter.txt')) as f:
+    with open(os.path.join(dir, 'shutter_times.txt')) as f:
         for line in f.readlines():
             if('/' in line):
                 a = float(line.split('/')[0])

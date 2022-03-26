@@ -6,11 +6,16 @@ import os
 class Robertson():
     def __init__(self):
         self.maxIter = 10
-        self.weight = np.array([np.exp(128.5 -  abs(i - 127.5)) for i in range(256)])
+        # self.weight = np.array([1 / (abs(i - 127.5)) for i in range(256)])
+        # self.weight = np.array([-(i - 80) ** 2 + 175 ** 2 + 1 for i in range(256)])
+        # self.weight = np.array([(128.5 -  abs(i - 127.5)) ** 2 for i in range(256)])
+        # self.weight /= np.sum(self.weight)
+        # print(self.weight)
+        self.weight = np.array([1 for i in range(256)])
         # self.weight = np.array([1 for i in range(256)])
         # self.weight = np.array([max(256 - i, 128) for i in range(256)])
     
-
+ 
     def cal_E(self, imgs, shutter):
         p = len(imgs)
         height, width, _ = imgs[0].shape
@@ -45,7 +50,7 @@ class Robertson():
         return np.sum(self.E.flatten())
 
     def initEG(self, imgs, shutter):
-        self.G = [[(i - 128) * 0.999 / 128 + 1 for i in range(256)] for j in range(3)]
+        self.G = [[((i - 128) * 0.999 / 128 + 1) for i in range(256)] for j in range(3)]
         self.cal_E(imgs, shutter)
 
 
