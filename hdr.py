@@ -42,8 +42,8 @@ def save(hdr, ldr_1, ldr_2, args, response_curve, out_dir):
     cv2.imwrite(os.path.join(out_dir, 'radiance.hdr'), hdr)
     np.save(os.path.join(out_dir, 'radiance.npy'), hdr)
     
-    cv2.imwrite(os.path.join(out_dir, f'pho_global_{args.p_global}.png'), ldr_1)
-    cv2.imwrite(os.path.join(out_dir, f'pho_local_{args.p_local}.png'), ldr_2)
+    cv2.imwrite(os.path.join(out_dir, f'pho_global_{args.a_global}.png'), ldr_1)
+    cv2.imwrite(os.path.join(out_dir, f'pho_local_{args.a_local}.png'), ldr_2)
 
 def ParseArgs():
     parser = argparse.ArgumentParser()
@@ -105,8 +105,8 @@ if __name__ == '__main__':
 
     # tone mapping
     print('start tone mapping')
-    ldr_1 = photographic_global_operator(hdr, args.p_global, 1e-8)
-    ldr_2 = photographic_local_operator(hdr, args.p_local, 1e-8)
+    ldr_1 = photographic_global_operator(hdr, args.a_global, 1e-8)
+    ldr_2 = photographic_local_operator(hdr, args.a_local, 1e-8)
  
     plot_response_curve(response_curve, out_dir)
     save(hdr, ldr_1, ldr_2, args, response_curve, out_dir)
