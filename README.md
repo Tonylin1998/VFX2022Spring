@@ -10,5 +10,5 @@ r10922062 林柏劭
 
 ## Run Code
 ```
-python hdr.py --data <data path>
+python hdr.py --data <data path> --hdr <hdr_method> 
 ```
