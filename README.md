@@ -5,9 +5,9 @@ r10922062 林柏劭
 ## Dependency
 
 python  
-opencv-python 
-numpy 
-matplotlib 
+opencv-python  
+numpy  
+matplotlib  
 
 ## Run Code
 
