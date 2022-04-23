@@ -117,12 +117,14 @@ def blend(imgs, translations, align):
 
     
     
+    result = np.zeros((result_h, result_w, c))
+    
+    
     for i in range(n):
         weight = np.zeros((h, w, 3))
         weight[:,:,0] = imgs_weight[i]
         weight[:,:,1] = imgs_weight[i]
         weight[:,:,2] = imgs_weight[i]
-
         result[oy:oy+h, ox:ox+w, :] += imgs[i] * weight
         
         if(i != n-1):

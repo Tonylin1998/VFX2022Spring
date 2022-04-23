@@ -1,8 +1,6 @@
 import numpy as np
 import cv2
 from scipy.ndimage import maximum_filter
-from utils import *
-from images import *
 
 
 def compute_gradient(image):
