@@ -7,9 +7,9 @@ import numpy as np
 import os, sys
 import random
 import matplotlib.pyplot as plt
-from feature import *
-from projection import *
-from match import *
+from features import HarrisCornerDetector, SIFTDescriptors, FeatureMatcher
+from projection import CylindricalProjection
+from image_align import PairwiseAlignment
 
 def ParseArgs():
     parser = argparse.ArgumentParser()
@@ -44,102 +44,12 @@ def load_data(dir):
 
     return np.array(imgs), np.array(focals)
 
-def get_result_size(h, w, translations):
-    ox, oy = 0, 0
-    min_x, min_y = 0, 0
-    max_x, max_y = 0, 0
-    
-    for i in range(len(translations)):
-
-        oy += translations[i][0]
-        ox += translations[i][1]
-
-        # min_x = min(ox, min_x)
-        # max_x = max(ox, max_x)
-        min_y = min(oy, min_y)
-        max_y = max(oy, max_y)
-    
-    result_h = h + max_y - min_y
-    result_w = w + np.sum(translations[:, 1])
-
-    return result_h, result_w, -min_y
-
-    
-
-
-
-def blend(imgs, translations, align):
-    n = len(imgs)
-   
-    if(translations[0][1] < 0):
-        print('reverse')
-        translations = -translations[::-1]
-        imgs = imgs[::-1]
-        if(align):
-            translations = np.concatenate((translations[1:,:], [translations[0,:]]))
-
-    if(align):
-        base, extra = divmod(translations[-1][0], n-1)
-        displacements = [base + (i < extra) for i in range(n-1)]
-        for i in range(n-1):
-            translations[i][0] += displacements[i]
-    
-    
-    translations = translations[:-1, :]
-    print(translations.shape)
-
-    h, w, c = imgs[0].shape
-    result_h, result_w, oy = get_result_size(h, w, translations)
-    ox = 0
-
-    imgs_weight = np.ones((n, h, w))
-    for i in range(n-1):
-        dy, dx = translations[i][0], translations[i][1]
-        # print(dy, dx)
-        if(dy >= 0):
-            blend_w = w - dx
-            blend_h = h - dy
-            # blend_array = np.zeros((blend_h, blend_w))
-            tmp = np.linspace(1, 0, blend_w)
-            blend_array = np.tile(tmp, (blend_h, 1))
-
-            imgs_weight[i][dy:, dx:] = blend_array
-            imgs_weight[i+1][:blend_h, :blend_w] = 1-blend_array
-        else:
-            blend_w = w - dx
-            blend_h = h - abs(dy)
-            # blend_array = np.zeros((blend_h, blend_w))
-            tmp = np.linspace(1, 0, blend_w)
-            blend_array = np.tile(tmp, (blend_h, 1))
-
-            imgs_weight[i][:blend_h, dx:] = blend_array
-            imgs_weight[i+1][abs(dy):, :blend_w] = 1-blend_array
-
-    
-    
-    result = np.zeros((result_h, result_w, c))
-    
-    
-    for i in range(n):
-        weight = np.zeros((h, w, 3))
-        weight[:,:,0] = imgs_weight[i]
-        weight[:,:,1] = imgs_weight[i]
-        weight[:,:,2] = imgs_weight[i]
-        result[oy:oy+h, ox:ox+w, :] += imgs[i] * weight
-        
-        if(i != n-1):
-            oy += translations[i][0]
-            ox += translations[i][1]
-    # print(z)
-    print(result.shape)
-    return result.astype(np.uint8)
-
 def image_stitching(imgs, focals, out_dir, args):
     print('=== start image stitching ===')
     n = len(imgs)
 
     print('--- cylindrical projection ---')
-    imgs = cylindrical_projection(imgs, focals)
+    imgs = CylindricalProjection().project(imgs, focals)
 
     if(args.t != None):
         translations = np.load(args.t)
@@ -147,41 +57,38 @@ def image_stitching(imgs, focals, out_dir, args):
         print('--- keypoints ---')
         keypoints = []
         for i in range(n):
-            keypoints.append(harris_detector(imgs[i]))
-        keypoints = np.array(keypoints)
+            keypoints.append(HarrisCornerDetector().detect_key_points(imgs[i]))
+        # keypoints = np.array(keypoints)
 
         print('--- descriptors ---')
         descriptors = []
         for i in range(n):
-            descriptors.append(keypoint_descriptor(imgs[i], keypoints[i]))
-        descriptors = np.array(descriptors)
+            descriptors.append(SIFTDescriptors().get_descriptors(imgs[i], keypoints[i]))
+        # descriptors = np.array(descriptors)
 
         print('--- matches ---')
         matches = []
         if(args.align):
             for i in range(n):
-                matches.append(find_matches(descriptors[i], descriptors[(i+1)%n], 0.8))
+                matches.append(FeatureMatcher().find_matches(descriptors[i], descriptors[(i+1)%n], 0.8))
         else:
             for i in range(n-1):
-                matches.append(find_matches(descriptors[i], descriptors[i+1], 0.8))
-        matches = np.array(matches)
+                matches.append(FeatureMatcher().find_matches(descriptors[i], descriptors[i+1], 0.8))
+        # matches = np.array(matches)
 
-        print('--- translations ---')
+        print('--- translations (ransac) ---')
         translations = []
         if(args.align):
             for i in range(n):
-                translations.append(ransac(matches[i], 1000, 3))
+                translations.append(FeatureMatcher().get_translations(matches[i], 1000, 3))
         else:
             for i in range(n-1):
-                translations.append(ransac(matches[i], 1000, 3))
+                translations.append(FeatureMatcher().get_translations(matches[i], 1000, 3))
         translations = np.array(translations)
         np.save(os.path.join(out_dir, 'translations.npy'), translations)
-    print(translations.shape)
 
     print('--- blending ---')
-    result = blend(imgs, translations, args.align)
-
-
+    result = PairwiseAlignment().blend(imgs, translations, args.align)
 
     return result
 
