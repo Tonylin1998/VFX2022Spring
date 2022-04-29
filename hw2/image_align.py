@@ -1,5 +1,5 @@
 import numpy as np
-
+import cv2
 
 class PairwiseAlignment():
     def get_result_size(self, h, w, translations):
@@ -31,16 +31,16 @@ class PairwiseAlignment():
             imgs = imgs[::-1]
             if(align):
                 translations = np.concatenate((translations[1:,:], [translations[0,:]]))
-        print(translations)
+        # print(translations)
         if(align):
             base, extra = divmod(translations[-1][0], n-1)
             displacements = [base + (i < extra) for i in range(n-1)]
-            print(displacements)
+            # print(displacements)
             for i in range(n-1):
                 translations[i][0] += displacements[i]
 
             translations = translations[:-1, :]
-        print(translations)
+        # print(translations)
         
         
         
@@ -87,3 +87,19 @@ class PairwiseAlignment():
                 ox += translations[i][1]
 
         return result.astype(np.uint8)
+
+
+def crop(img):
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    top, down = 0, img.shape[0]-1
+    for i in range(img.shape[0]):
+        if np.count_nonzero(img_gray[i]) > 0.99 * img.shape[1]:
+            top = i
+            break
+    for i in range(img.shape[0]-1, -1, -1):
+        if np.count_nonzero(img_gray[i]) > 0.99 * img.shape[1]:
+            down = i
+            break
+    
+    return img[top:down+1]

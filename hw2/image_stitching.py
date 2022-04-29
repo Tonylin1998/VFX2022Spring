@@ -9,7 +9,7 @@ import random
 import matplotlib.pyplot as plt
 from features import HarrisCornerDetector, SIFTDescriptors, FeatureMatcher
 from projection import CylindricalProjection
-from image_align import PairwiseAlignment
+from image_align import PairwiseAlignment, crop
 
 def ParseArgs():
     parser = argparse.ArgumentParser()
@@ -92,28 +92,6 @@ def image_stitching(imgs, focals, out_dir, args):
 
     return result
 
-def crop(image):
-    img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, img_thresh = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY)
-
-    # print(np.size(img_thresh[0]))
-    # print(np.size(np.where(img_thresh[0] != 0)))
-    h, w, _ = image.shape
-    low = 0
-    upper = h-1
-    for i in range(h):
-        # print(np.size(np.where(img_thresh[i] != 0)))
-        if np.size(np.where(img_thresh[i] != 0)) > 0.9*w:
-            low = i
-            break
-    for i in range(h-1,-1,-1):
-        if np.size(np.where(img_thresh[i] != 0)) > 0.9*w:
-            upper = i+1
-            break
-    
-    # print(low,upper)
-    return image[low:upper]
-
 if __name__ == '__main__':
     args = ParseArgs()
 
@@ -137,11 +115,6 @@ if __name__ == '__main__':
 
     pano = image_stitching(imgs, focals, out_dir, args)
     pano_crop = crop(pano)
-    
-    # cv2.namedWindow('pano', cv2.WINDOW_NORMAL)
-    # cv2.imshow('pano', pano)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
     
     cv2.imwrite(os.path.join(out_dir, 'pano.jpg'), pano)
     cv2.imwrite(os.path.join(out_dir, 'pano_crop.jpg'), pano_crop)
