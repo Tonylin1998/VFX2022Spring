@@ -117,8 +117,8 @@ class FeatureMatcher():
         
         max_cnt = -1
         for _ in range(ransac_iter):
-            randint = np.random.randint(0, len(points1))
-            translation = np.subtract(points1[randint], points2[randint])
+            idx = np.random.randint(0, len(points1))
+            translation = np.subtract(points1[idx], points2[idx])
 
             pred_points2 = points1 - translation
             cnt = 0

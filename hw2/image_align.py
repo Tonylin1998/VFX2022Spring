@@ -81,12 +81,14 @@ class PairwiseAlignment():
             weight[:,:,1] = imgs_weight[i]
             weight[:,:,2] = imgs_weight[i]
             result[oy:oy+h, ox:ox+w, :] += imgs[i] * weight
-
+            print(np.max(imgs[i]))
+            print(np.max(imgs[i] * weight))
             
             if(i != n-1):
                 oy += translations[i][0]
                 ox += translations[i][1]
         print(np.max(result))
+        result = np.clip(result, 0, 255)
         return result.astype(np.uint8)
 
 
