@@ -3,140 +3,133 @@ import cv2
 from scipy.ndimage import maximum_filter
 from scipy.spatial.distance import cdist
 
-class HarrisCornerDetector():
-    def detect_key_points(self, image, k=0.04, thresRatio=0.01):
-        # Compute x and y derivatives of image
-        Ix, Iy = compute_gradient(image)
 
-        # Compute products of derivatives at every pixel
-        Ix2 = Ix*Ix
-        Iy2 = Iy*Iy
+
+class HarrisCornerDetector():
+    def detect_key_points(self, img, k=0.05, threshold=50000):
+        kernel_size = 5
+
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
+        I = cv2.GaussianBlur(img_gray, (kernel_size, kernel_size), 0)
+        Iy, Ix = np.gradient(I)
+
+        Ix2 = Ix**2
+        Iy2 = Iy**2
         Ixy = Ix*Iy
 
-        # Compute the sums of the products of derivatives at each pixel
-        Sx2 = cv2.GaussianBlur(Ix2, (5,5), 0)
-        Sy2 = cv2.GaussianBlur(Iy2, (5,5), 0)
-        Sxy = cv2.GaussianBlur(Ixy, (5,5), 0)
+        Sx2 = cv2.GaussianBlur(Ix2, (kernel_size, kernel_size), 0)
+        Sy2 = cv2.GaussianBlur(Iy2, (kernel_size, kernel_size), 0)
+        Sxy = cv2.GaussianBlur(Ixy, (kernel_size, kernel_size), 0)
 
-        # Compute the response of the detector at each pixel
-        """  M = [Sx2 Sxy]
-                [Sxy Sy2]  """
-        detM = Sx2*Sy2 - Sxy*Sxy
-        traceM = Sx2 + Sy2
-        R = detM - k*(traceM**2)
+        R = (Sx2 * Sy2 - Sxy * Sxy) - k * (Sx2 + Sy2) ** 2
 
-        # Threshold on value of R and local maximum
-        threshold = thresRatio*np.max(R)
+        threshold = 0.01 * np.max(R)
         R[R<threshold] = 0
         localMaxR = maximum_filter(R, size=3, mode='constant')
         R[R<localMaxR] = 0
-        # show_heatimage(R)
-        point = np.where(R>0)
-        point = np.array(point).T  # (2, n) => (n, 2)
-        # point[:,[0, 1]] = point[:,[1, 0]]  # (y, x) => (x, y)
-        return point
+        
+    
+        keypoints = np.array(np.where(R > 0)).T
+        
 
+        # keypoints = np.array(np.where(R > threshold)).T
+        print(keypoints.shape)
+
+        return keypoints
 
 class SIFTDescriptors():
-    def orientation_histogram(self, image, bins, sigma):
-        Ix, Iy = compute_gradient(image)
+    def orientation_histogram(self, img, bins, sigma):
+        kernel_size = 5
+        h, w, _ = img.shape
+
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
+        I = cv2.GaussianBlur(img_gray, (kernel_size, kernel_size), 0)
+        Iy, Ix = np.gradient(I)
+
         magnitude = np.sqrt(Ix**2 + Iy**2)
-        theta = np.arctan2(Iy, Ix)*180/np.pi
+        theta = np.arctan2(Iy, Ix) * 180 / np.pi
         theta[theta<0] = theta[theta<0]+360
         
         binSize = 360/bins
         bucket = np.round(theta/binSize)
-        histogram = np.zeros((bins,) + magnitude.shape)  # (bins, h, w)
+        histogram = np.zeros((bins,) + (h,w))  # (bins, h, w)
         for b in range(bins):
             histogram[b][bucket==b] = 1
             histogram[b] *= magnitude
             histogram[b] = cv2.GaussianBlur(histogram[b], (5,5), sigma)
         
         return histogram
-    def get_descriptors(self, image, keyPoints):
-        # Orientation assignment
-        histogram = self.orientation_histogram(image, bins=36, sigma=1.5)
-        orientations = np.argmax(histogram, axis=0)*10 + 5
+
+    def get_descriptors(self, img, keypoints):
+        histogram = self.orientation_histogram(img, bins=36, sigma=1.5)
+        orientations_assignment = np.argmax(histogram, axis=0)*10 + 5
         
-        # Local image descriptor
         descriptors = []
-        h, w, _ = image.shape
-        for y, x in keyPoints:
-            rotated = rotate_image(image, orientations[y, x], (x,y))
+        h, w, _ = img.shape
+        for kp in keypoints:
+            i, j = kp[0], kp[1]
+
+            rotation_matrix = cv2.getRotationMatrix2D((float(j), float(i)), orientations_assignment[i, j], 1)
+            rotated = cv2.warpAffine(img, rotation_matrix, (w, h))
+
             histogram = self.orientation_histogram(rotated, bins=8, sigma=8)
-            if y-8>0 and y+8<h and x-8>0 and x+8<w:  # else discard this keypoint
-                # print(x, y)
-                desc = []
-                for subY in range(y-8, y+8, 4):
-                    for subX in range(x-8, x+8, 4):
-                        subHistogram = []
-                        for bin in range(8):
-                            subHistogram.append(np.sum(histogram[bin][subY:subY+4, subX:subX+4]))
-                        desc += subHistogram
-                desc = normalize(desc)
-                if np.any(desc>0.2):
-                    desc[desc>0.2] = 0.2
-                    desc = normalize(desc)
-                descriptors.append({'point':(y, x), 'desc':desc})
-        return descriptors
+            desc = []
+            for di in range(i-8, i+4+1, 4):
+                for dj in range(j-8, j+4+1, 4):
+                    sub_feature = [0 for _ in range(8)]
+                    i_low = max(0, di)
+                    j_low = max(0, dj)
+                    i_high = min(h, di+4) 
+                    j_high = min(w, dj+4) 
+                    for bin in range(8):
+                        sub_feature[bin] = np.sum(histogram[bin][i_low:i_high, j_low:j_high])
+                    desc += sub_feature
+
+            desc /= np.linalg.norm(desc)
+            descriptors.append(np.array(desc).astype('float32'))
+
+        return np.array(descriptors)
+        
+        
 
 class FeatureMatcher():
-    def find_matches(self, desc1, desc2, thres=0.8):
-        d1 = [desc1[i]['desc'] for i in range(len(desc1))]
-        d2 = [desc2[i]['desc'] for i in range(len(desc2))]
-        distances = cdist(d1, d2)
-        sort = np.argsort(distances, axis=1)
+    def find_matches(self, kp1, kp2, des1, des2):
+        matcher = cv2.BFMatcher()
+        matches = matcher.knnMatch(des1, des2, k=2)
+        print(len(matches))
+        good_matches = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good_matches.append(m)
+        print(len(good_matches))
+
+        good_matches = sorted(good_matches, key=lambda x: x.distance)
+        # good_matches = delete_closer(good_matches, kp1, k)
         
-        matches = []
-        for i, sortIndex in enumerate(sort): # i means point 1
-            first = distances[i, sortIndex[0]]
-            second = distances[i, sortIndex[1]]
-            if first / second < thres:
-                matches.append([desc1[i]['point'], desc2[sortIndex[0]]['point']])
-        return matches
+        # good_matches = g ood_matches[:k]
+        points1 = np.array([kp1[m.queryIdx] for m in good_matches])
+        points2 = np.array([kp2[m.trainIdx] for m in good_matches])
 
+        return points1, points2
 
-    def get_translations(self, matches, iterCount=1000, threshold=3):
-        maxInliner = -1
-        for i in range(iterCount):
-            randint = np.random.randint(0, len(matches))
-            dyx = np.subtract(matches[randint][0], matches[randint][1])
-            matches = np.array(matches)
-            afterShift = matches[:, 0] - dyx
-            diff = matches[:, 1] - afterShift
-            inliner = 0
-            for d in diff:
-                y, x = d
-                if np.sqrt(x**2+y**2)<threshold:
-                    inliner += 1
-            if maxInliner < inliner:
-                maxInliner = inliner
-                bestdyx = tuple(dyx)
-        return bestdyx
+    def get_translation(self, kp1, kp2, des1, des2, ransac_iter):
+        points1, points2 = self.find_matches(kp1, kp2, des1, des2)
+        
+        max_cnt = -1
+        for _ in range(ransac_iter):
+            randint = np.random.randint(0, len(points1))
+            translation = np.subtract(points1[randint], points2[randint])
 
+            pred_points2 = points1 - translation
+            cnt = 0
+            for i in range(len(points2)):
+                error = ((points2[i][0]-pred_points2[i][0])**2 + (points2[i][1]-pred_points2[i][1])**2)**(1/2)
+                if(error < 3):
+                    cnt += 1
 
-
-
-def normalize(v):
-    norm = np.linalg.norm(v)
-    if norm == 0: 
-       return v
-    return v / norm
-
-def rotate_image(image, theta, center=None):
-    h, w, _ = image.shape
-    if center==None:
-        center = (w/2, h/2)
-    M = cv2.getRotationMatrix2D((float(center[0]), float(center[1])), theta, 1)
-    rotated = cv2.warpAffine(image, M, (w, h))
-    return rotated
-
-def compute_gradient(image):
-    grayImg = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # gray image
-    I = cv2.GaussianBlur(grayImg, (5,5), 0)
-    Iy, Ix = np.gradient(I)
-    return Ix, Iy
-
-
-
+            if(cnt > max_cnt):
+                # print(cnt)
+                max_cnt = cnt
+                best_translation = translation
+        return best_translation
 

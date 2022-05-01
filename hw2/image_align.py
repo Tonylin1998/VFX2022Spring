@@ -24,7 +24,7 @@ class PairwiseAlignment():
 
     def blend(self, imgs, translations, align):
         n = len(imgs)
-    
+        print(translations)
         if(translations[0][1] < 0):
             print('reverse')
             translations = -translations[::-1]
@@ -81,11 +81,12 @@ class PairwiseAlignment():
             weight[:,:,1] = imgs_weight[i]
             weight[:,:,2] = imgs_weight[i]
             result[oy:oy+h, ox:ox+w, :] += imgs[i] * weight
+
             
             if(i != n-1):
                 oy += translations[i][0]
                 ox += translations[i][1]
-
+        print(np.max(result))
         return result.astype(np.uint8)
 
 
